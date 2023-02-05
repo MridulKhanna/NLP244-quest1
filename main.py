@@ -4,20 +4,33 @@ import math
 import torch
 import torch.nn as nn
 import torch.onnx
+import numpy as np
+import torchtext.vocab as vocabulary
 
 import data
 from utils import get_device, repackage_hidden, make_reproducible
 from rnnlm import RNNModel
 
-
 def init_glove_embeddings(model: RNNModel, glove_path):
-    # TODO: implement this function
-    raise NotImplementedError
 
+    # TODO: implement this function
+    vocabs,embeddings = [],[]
+    with open(glove_path + 'glove.6B.50d.txt','rt', encoding="utf-8") as fi:
+        full_content = fi.read().strip().split('\n')
+    for i in range(len(full_content)):
+        i_word = full_content[i].split(' ')[0]
+        i_embeddings = [float(val) for val in full_content[i].split(' ')[1:]]
+        vocabs.append(i_word)
+        embeddings.append(i_embeddings)                                             
+    embs_npa = np.array(embeddings) 
+    embs_npa = np.vstack((embs_npa))
+
+    return embs_npa  
 
 def compute_perplexity(loss: float):
     # TODO: implement this function
-    raise NotImplementedError
+    return torch.exp(torch.tensor(loss))
+    # raise NotImplementedError
 
 
 def parse_args():
@@ -132,9 +145,13 @@ def train_model_step(corpus, args, model, criterion, epoch, lr):
         loss.backward()
 
         # `clip_grad_norm` helps prevent the exploding gradient problem in RNNs / LSTMs.
-        torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-        for p in model.parameters():
+        params_to_update = [p for p in model.parameters() if p.requires_grad == True]
+        torch.nn.utils.clip_grad_norm_(params_to_update, args.clip)
+        for p in params_to_update:
             p.data.add_(p.grad, alpha=-lr)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+        # for p in model.parameters():
+        #     p.data.add_(p.grad, alpha=-lr)
 
         total_loss += loss.item()
 
@@ -220,6 +237,9 @@ if __name__ == "__main__":
     model = RNNModel(ntokens, args.emsize, args.nhid, args.nlayers, args.dropout).to(
         device
     )
+    embs_npa = init_glove_embeddings(model, "d:\\NLP\\glove.6B\\")
+    model.in_embedder = nn.Embedding(model.vocab_size, model.in_embedding_dim).from_pretrained(torch.from_numpy(embs_npa).float()).to(device)
+    model.in_embedder.weight.requires_grad = False
     criterion = nn.NLLLoss()
     train_model(corpus, args, model, criterion)
     test_model(corpus, args, model, criterion)
