@@ -140,9 +140,11 @@ def train_model_step(corpus, args, model, criterion, epoch, lr):
         # Starting each batch, we detach the hidden state from how it was previously produced.
         # If we didn't, the model would try backpropagating all the way to start of the dataset.
 
-        model.zero_grad()
-        # optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-        # optimizer.zero_grad()
+        if use_adam_optimizer == False:
+            model.zero_grad()
+        elif use_adam_optimizer == True:
+            optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+            optimizer.zero_grad()
         hidden = repackage_hidden(hidden)
         output, hidden = model(data, hidden)
         loss = criterion(output, targets)
@@ -232,8 +234,11 @@ def test_model(corpus, args, model, criterion):  # Load the best saved model.
 
 if __name__ == "__main__":
     args = parse_args()
+    # Setting the value of constants
     use_glove_embeddings = False
     freeze_layers_flag = True  # False for freezing, True for unfreezing
+    use_adam_optimizer = False
+
     make_reproducible(args.seed)
     device = get_device()
     corpus = data.Corpus(args.data)
