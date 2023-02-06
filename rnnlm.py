@@ -2,7 +2,17 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+# Setting the value of constants
+type_of_rnn = "lstm"
+bidirectional_flag = True
+
+
 temp_batch_size = 0
+if bidirectional_flag == True:
+    num_directions = 2
+else:
+    num_directions = 1
+
 class RNNModel(nn.Module):
     def __init__(
         self,
@@ -11,7 +21,7 @@ class RNNModel(nn.Module):
         n_hidden,
         n_layers,
         dropout=0.5,
-        rnn_type="lstm",  # can be elman, lstm, gru
+        rnn_type=type_of_rnn,  # can be elman, lstm, gru
     ):
         super(RNNModel, self).__init__()
         self.rnn_type = rnn_type
@@ -22,21 +32,18 @@ class RNNModel(nn.Module):
                 n_layers,
                 nonlinearity="tanh",
                 dropout=dropout,
+                bidirectional = bidirectional_flag
             )
         elif rnn_type == "lstm":
             # TODO: implement lstm and gru
             # self.rnn = ...
-            self.rnn = nn.LSTM(in_embedding_dim, n_hidden, n_layers, dropout=dropout, bidirectional = True)
-            # raise NotImplementedError
+            self.rnn = nn.LSTM(in_embedding_dim, n_hidden, n_layers, dropout=dropout, bidirectional = bidirectional_flag)
         elif rnn_type == "gru":
-            self.rnn = nn.GRU(in_embedding_dim, n_hidden, n_layers, dropout=dropout, bidirectional = True)
+            self.rnn = nn.GRU(in_embedding_dim, n_hidden, n_layers, dropout=dropout, bidirectional = bidirectional_flag)
         
         self.in_embedder = nn.Embedding(vocab_size, in_embedding_dim)
         self.dropout = nn.Dropout(dropout)
-        if rnn_type == "lstm" or rnn_type == "gru":
-            self.pooling = nn.Linear(n_hidden * 2, vocab_size)
-        else:
-            self.pooling = nn.Linear(n_hidden, vocab_size)
+        self.pooling = nn.Linear(n_hidden * num_directions, vocab_size)
         self.init_weights()
         self.n_hidden = n_hidden
         self.n_layers = n_layers
@@ -53,8 +60,8 @@ class RNNModel(nn.Module):
         global temp_batch_size
         emb = self.dropout(self.in_embedder(input))
         if self.rnn_type == "lstm":
-            h_0 = torch.zeros(2*self.n_layers, temp_batch_size, self.n_hidden).cuda()
-            c_0 = torch.zeros(2*self.n_layers, temp_batch_size, self.n_hidden).cuda()
+            h_0 = torch.zeros(num_directions * self.n_layers, temp_batch_size, self.n_hidden).cuda()
+            c_0 = torch.zeros(num_directions * self.n_layers, temp_batch_size, self.n_hidden).cuda()
             output, hidden = self.rnn(emb, (h_0, c_0))
         else:
             output, hidden = self.rnn(emb, hidden)
@@ -68,8 +75,8 @@ class RNNModel(nn.Module):
         global temp_batch_size
         temp_batch_size = batch_size
         weight = next(self.parameters())
-        if self.rnn_type == "gru":
-            return weight.new_zeros(self.n_layers * 2, batch_size, self.n_hidden)
+        if self.rnn_type == "gru" or self.rnn_type == "elman":
+            return weight.new_zeros(self.n_layers * num_directions, batch_size, self.n_hidden)
         else:
             return weight.new_zeros(self.n_layers, batch_size, self.n_hidden)
 
