@@ -2,7 +2,6 @@ import os
 from io import open
 import torch
 
-
 class Vocabulary(object):
     def __init__(self):
         self.type2index = {}
@@ -52,6 +51,6 @@ class Corpus(object):
         return ids
 
 corpusobj = Corpus("D:\\NLP244-quest1-main\\NLP244-quest1-main\\data\\wikitext-2")
-temp = vars(corpusobj)['train']
-print(unk_count)
-print("Percentage of <unk> tokens in training dataset:", (unk_count/len(temp))*100)
+temp = corpusobj.train
+print("unk token count:", unk_count)
+print("Percentage of <unk> tokens in full training dataset:", (unk_count/len(temp))*100)
